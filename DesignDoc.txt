@@ -1,0 +1,15 @@
+Design Doc:
+
+Take user input to define which PDF is being used
+	handled by extract-from-xref.py
+		this code has a gui that i may or may not keep/steal
+Open the PDF and extract images
+	handled by extract-from-xref.py
+		create a new pdf extraction script
+Sort images
+	currently sorts based on image dimensions, presence of transparency, and on image uniformity
+		can this be expanded?		
+	based on user input?
+		display image with GUI, then ask if this is a Character, Logo or Symbol, Cover Art or Full-Page, or junk
+Deposit images into sorted folders
+	handle arguments and problems

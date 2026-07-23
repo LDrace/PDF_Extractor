@@ -1,15 +1,59 @@
 Design Doc:
 
-Take user input to define which PDF is being used
-	handled by extract-from-xref.py
-		this code has a gui that i may or may not keep/steal
-Open the PDF and extract images
-	handled by extract-from-xref.py
-		create a new pdf extraction script
-Sort images
-	currently sorts based on image dimensions, presence of transparency, and on image uniformity
-		can this be expanded?		
-	based on user input?
-		display image with GUI, then ask if this is a Character, Logo or Symbol, Cover Art or Full-Page, or junk
+1. Take user input to define which PDF is being used
+	Currently i am just plugging the path in to the code manually
+2. Open the PDF and extract images
+	While images are extracting, sort them until you are sure they are worth writing to the disk.
+		Images should end up in one of three categories
+		
+			Artwork depicts a scene or has many elements within one image, might include full page art or maps
+			Character art depicts a single character or creature on a transparent background, suitable for a token
+			Symbols are small images like logos that belong to an organization or which denote a rules concept
+			Junk is PDF artifacts, page trims, and so on, not useful
+
+		Images are scored based on how well they fit each category.
+
+			+1 score for something that sometimes applies
+			+2 score for something that usually applies
+			+3 score for something that almost always applies
+
+		Images are then sorted according to their highest score. In case of a tie assign in the following order:
+		Art>Character>Symbol>Junk
+	
+	start with just metadata from .get_page_images from PyMuPDF
+		metadata includes the following: 
+		{
+		xref (int) is the image object number
+		smask (int) is the object number of its soft-mask image
+		width (int) is the image width
+		height (int) is the image height
+		bpc (int) denotes the number of bits per component (normally 8)
+		colorspace (str) a string naming the colorspace (like DeviceRGB)
+		alt_colorspace (str) is any alternate colorspace depending on the value of colorspace
+		name (str) is the symbolic name by which the image is referenced
+		filter (str) is the decode filter of the image (Adobe PDF References, pp. 22).
+		referencer (int) the xref of the referencer. Zero if directly referenced by the page. Only present if full=True.
+		}
+		Metadata can be used to sort images in the following ways:
+
+		1. Identify duplicate images by noting their xref and adding it to a set
+		2. Exclude junk images based on their size
+			very small images are either junk or symbols, and should gain some score for both
+		3. Exclude junk images based on their dimensions
+			extreme dimensions are very commonly junk images
+		4. Identify images that have transparency and an image mask
+			this will require building an image, either as a pillow object or a pixmap object
+			trasparent images should gain score as being potential character images or symbol images
+		5. Identify images by their colorspaces
+			DeviceCMYK is more likely to be a large artwork
+			DeviceRGB is more likely to be a character image
+			ICCBased could be anything
+
+	Now we know which images at which xrefs are worth actually extracting.
+		Images with their highest score in junk are ignored to save time writing to disk.
+
+
+
+
+	
 Deposit images into sorted folders
-	handle arguments and problems

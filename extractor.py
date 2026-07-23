@@ -10,7 +10,7 @@ def ordinal(n):
     """
     # Convert our number into an absolute number
     f = abs(n)
-    # Check for 11, 12, 13 which are exceptions to the normal rule
+    # Check if the last two digits are 11, 12, or 13 which are exceptions to the normal rule
     if 11 <= f % 100 <= 13:
         suffix = "th"
     else:
@@ -71,41 +71,54 @@ def extract_pillow_images(pdf_path: str, metadata_stream: dict):
     """
     Consumes a metadata stream from get_image_metadata, reconstructs transparency from smasks,
     and yields pairs of metadata, Pillow_Image.
+
+    Function coded by gemini. Does not currently work very well. 
+    Problems:
+    Extracts all images, even those that have already been extracted (images with the same xref). 
+    Creates a variable containing image bytes, but doesn't actually yield the bytes at the end of the function.
+    Assigns all images the same format, png, which is probably fine but not ideal.
+    Very slow, this is probably because it checks the same image many times over.
     """
     with pdf.open(pdf_path) as doc:
         for meta in metadata_stream:
             xref = meta['xref']
-            smask = meta.get('smask', 0) # Fallback to 0 if smask key is missing
+            smask = meta.get('smask', 0)
             
             try:
-                # 1. Read the base RGB layout into a Pixmap
-                base_pixmap = pdf.Pixmap(doc, xref)
-                
-                # 2. If an smask exists, dynamically merge the alpha channel
                 if smask > 0:
+                    # 1. Reconstruct Transparency Mask
+                    base_pixmap = pdf.Pixmap(doc, xref)
                     mask_pixmap = pdf.Pixmap(doc, smask)
                     
-                    # Create a definitive RGBA canvas using the base dimensions
-                    rgba_pixmap = pdf.Pixmap(base_pixmap) 
-                    rgba_pixmap.set_alpha(mask_pixmap.samples) # Overlays the transparency map
+                    # Handle potential CMYK color spaces with an alpha mask gracefully
+                    if base_pixmap.colorspace and base_pixmap.colorspace.n == 4:
+                        rgb_pixmap = pdf.Pixmap(pdf.csRGB, base_pixmap)
+                        rgba_pixmap = pdf.Pixmap(rgb_pixmap, mask_pixmap)
+                        rgb_pixmap = None
+                    else:
+                        rgba_pixmap = pdf.Pixmap(base_pixmap, mask_pixmap)
                     
-                    # Extract the raw, combined bytes
-                    image_bytes = rgba_pixmap.tobytes("png")
+                    ext = "png" # Reconstructed transparent frames must be PNG
+                    img_bytes = rgba_pixmap.tobytes("png")
                     
-                    # Clean up C-level memory maps
+                    # Explicit C-layer memory flush
+                    base_pixmap = None
                     mask_pixmap = None
                     rgba_pixmap = None
                 else:
-                    # No transparency required; export standard format bytes
-                    image_bytes = base_pixmap.tobytes("png")
+                    # 2. THE RAW BYTE BYPASS
+                    # No transparency -> Extract native file bytes directly from PDF stream
+                    raw_dict = doc.extract_image(xref)
+                    if not raw_dict:
+                        continue
+                    ext = raw_dict["ext"]         # Keeps 'jpeg', 'png', etc. intact
+                    img_bytes = raw_dict["image"] # Pure un-transcoded binary bytes
                 
-                base_pixmap = None # Clean up base map
+                # 3. Create Pillow Container for downstream evaluation
+                pil_img = Image.open(io.BytesIO(img_bytes))
+                pil_img.load() # Force pixel population before stream scope closure
                 
-                # 3. Create a pillow container
-                pil_img = Image.open(io.BytesIO(image_bytes))
-                pil_img.load() # Force memory allocation
-                
-                yield meta, pil_img
+                yield meta, pil_img, ext, img_bytes
                 
             except Exception as e:
                 print(f"Skipping corrupt image asset (xref: {xref}) on Page {meta['page_number']}: {e}")

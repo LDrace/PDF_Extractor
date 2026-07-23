@@ -5,7 +5,7 @@ import errno
 
 def move_handler(src, dst, task="moving files"):
     """
-    This program moves a lot of files around. 
+    This program used to move a lot of files around, but now it doesn't really, so this function is obsolete. Kept just in case.
     I wanted shutil.move() to have exception handling because my disks are always nearly full. 
 
     Should return True if shutil.move is successful and False if not.

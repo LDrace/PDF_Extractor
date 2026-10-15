@@ -10,12 +10,14 @@ def ordinal(n):
     """
     # Convert our number into an absolute number
     f = abs(n)
+
     # Check if the last two digits are 11, 12, or 13 which are exceptions to the normal rule
     if 11 <= f % 100 <= 13:
         suffix = "th"
     else:
         # Match the last digit to the correct suffix
         suffix = {1: "st", 2: "nd", 3: "rd"}.get(f % 10, "th")
+    
     # Return the number with its ordinal
     return f"{n}{suffix}"
 
@@ -70,14 +72,14 @@ def get_image_metadata(pdf_path: str, pages: tuple[int, int] = None, keys: list[
 def extract_pillow_images(pdf_path: str, metadata_stream: dict):
     """
     Consumes a metadata stream from get_image_metadata, reconstructs transparency from smasks,
-    and yields pairs of metadata, Pillow_Image.
+    and yields [metadata, a pillow image object, an extention for the filename, image bytes].
 
     Function coded by gemini. Does not currently work very well. 
+    
     Problems:
     Extracts all images, even those that have already been extracted (images with the same xref). 
-    Creates a variable containing image bytes, but doesn't actually yield the bytes at the end of the function.
     Assigns all images the same format, png, which is probably fine but not ideal.
-    Very slow, this is probably because it checks the same image many times over.
+    Very slow, this is probably partially because it checks the same image many times over.
     """
     with pdf.open(pdf_path) as doc:
         for meta in metadata_stream:

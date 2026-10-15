@@ -1,6 +1,8 @@
 import os
-import utils
 from PIL import Image
+
+from .utils import move_handler
+from .image_processing import get_uniformity, has_transparency
 
 def sort_automatic(
     extract_output = "./output", 
@@ -30,7 +32,7 @@ def sort_automatic(
 
     # makes the output folders if they don't exist
     os.makedirs(sort_output, exist_ok=True)
-    for subfolder in subfolders.values(): 
+    for _ in subfolders.values(): 
         os.makedirs(sort_output, exist_ok=True)
 
     # image filepaths will be sorted into this dictionary
@@ -49,7 +51,7 @@ def sort_automatic(
     # sorting is done here, wrapped in try in case the file can't be opened
         try:
             with Image.open(file_path) as img:
-                if utils.get_uniformity(img, ignore_transparency = True, fast= True) > junk_max_uniformity:
+                if get_uniformity(img, ignore_transparency = True, fast= True) > junk_max_uniformity:
                     category = "junk"
                 elif max(img.size) >= junk_ratio * min(img.size):
                     category = "junk"
@@ -57,7 +59,7 @@ def sort_automatic(
                     category = "symbols"
                 elif img.format == "JPEG" or img.mode == "CMYK":
                     category = "art"    
-                elif utils.has_transparency(img):
+                elif has_transparency(img):
                     category = "creatures"
                 elif any(n >= symbol_size for n in img.size):
                     category = "art"
@@ -68,7 +70,7 @@ def sort_automatic(
             if category:
                 sorted_images[category].append(file)
                 destination = os.path.join(subfolders[category], file)
-                utils.move_handler(file_path, destination, task=task)
+                move_handler(file_path, destination, task=task)
 
     # files that cannot be identified as images are skipped
         except Image.UnidentifiedImageError:
